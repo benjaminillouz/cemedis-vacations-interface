@@ -607,6 +607,12 @@ async function renderCards() {
                     <a href="${center.googleReviewUrl}" target="_blank" class="review-link">Voir la fiche Google</a>
                 </div>
                 ` : ''}
+                <div class="card-info-item">
+                    <i class="fas fa-user-plus"></i>
+                    <button class="candidate-btn" onclick="openCandidateModal('${center.name}', '${center.id}')">
+                        Candidater
+                    </button>
+                </div>
             </div>
             
             <div class="card-vacations">
@@ -839,7 +845,308 @@ window.addEventListener('error', function(e) {
     console.error('Erreur JavaScript:', e.error);
 });
 
-// Gestion des erreurs de promesses non capturées
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('Promesse rejetée:', e.reason);
+// Configuration du webhook de candidature
+const CANDIDATE_WEBHOOK_URL = 'https://n8n.cemedis.app/webhook/50976d82-8f4f-411b-8bf6-ccfb2977b968';
+
+// Variables globales pour la modal de candidature
+let currentCenterId = null;
+let currentCenterName = '';
+
+// Fonctions pour la modal de candidature
+function openCandidateModal(centerName, centerId) {
+    console.log('Ouverture de la modal pour:', centerName, centerId);
+    
+    currentCenterName = centerName;
+    currentCenterId = centerId;
+    
+    // Pré-remplir le nom du centre
+    document.getElementById('center-name').value = centerName;
+    
+    // Réinitialiser le formulaire
+    document.getElementById('candidate-form').reset();
+    document.getElementById('center-name').value = centerName;
+    
+    // Masquer le message de succès et afficher le formulaire
+    const successMessage = document.getElementById('success-message');
+    const candidateForm = document.getElementById('candidate-form');
+    
+    if (successMessage) {
+        successMessage.style.display = 'none';
+    }
+    if (candidateForm) {
+        candidateForm.style.display = 'block';
+    }
+    
+    // Réinitialiser les messages de validation
+    clearValidationMessages();
+    
+    // Afficher la modal
+    const modal = document.getElementById('candidate-modal');
+    modal.style.display = 'block';
+    
+    // Empêcher le scroll du body
+    document.body.style.overflow = 'hidden';
+    
+    // Focus sur le premier champ
+    const firstnameInput = document.getElementById('candidate-firstname');
+    if (firstnameInput) {
+        setTimeout(() => {
+            firstnameInput.focus();
+        }, 100);
+    }
+    
+    // Scroll vers le haut de la modal
+    modal.scrollTop = 0;
+}
+
+function closeCandidateModal() {
+    console.log('Fermeture de la modal');
+    const modal = document.getElementById('candidate-modal');
+    modal.style.display = 'none';
+    
+    // Restaurer le scroll du body
+    document.body.style.overflow = 'auto';
+    
+    currentCenterId = null;
+    currentCenterName = '';
+}
+
+// Validation en temps réel
+function setupFormValidation() {
+    const emailInput = document.getElementById('candidate-email');
+    const phoneInput = document.getElementById('candidate-phone');
+    const firstnameInput = document.getElementById('candidate-firstname');
+    const lastnameInput = document.getElementById('candidate-lastname');
+    
+    if (!emailInput || !phoneInput || !firstnameInput || !lastnameInput) {
+        console.log('Éléments de validation non trouvés');
+        return;
+    }
+    
+    // Validation email
+    emailInput.addEventListener('input', function() {
+        validateEmail(this.value);
+    });
+    
+    // Validation téléphone
+    phoneInput.addEventListener('input', function() {
+        validatePhone(this.value);
+    });
+    
+    // Validation prénom
+    firstnameInput.addEventListener('input', function() {
+        validateName(this.value, 'firstname-validation');
+    });
+    
+    // Validation nom
+    lastnameInput.addEventListener('input', function() {
+        validateName(this.value, 'lastname-validation');
+    });
+}
+
+// Validation de l'email
+function validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validationDiv = document.getElementById('email-validation');
+    
+    if (!validationDiv) return false;
+    
+    if (!email) {
+        validationDiv.textContent = '';
+        validationDiv.className = 'validation-message';
+        return false;
+    }
+    
+    if (emailRegex.test(email)) {
+        validationDiv.textContent = '✓ Email valide';
+        validationDiv.className = 'validation-message success';
+        return true;
+    } else {
+        validationDiv.textContent = '✗ Format d\'email invalide';
+        validationDiv.className = 'validation-message error';
+        return false;
+    }
+}
+
+// Validation du téléphone
+function validatePhone(phone) {
+    // Supprimer tous les espaces et caractères spéciaux sauf + au début
+    const cleanPhone = phone.replace(/[\s\-\.]/g, '');
+    const phoneRegex = /^(?:\+33|0)[1-9](?:[0-9]{8})$/;
+    const validationDiv = document.getElementById('phone-validation');
+    
+    if (!validationDiv) return false;
+    
+    if (!phone) {
+        validationDiv.textContent = '';
+        validationDiv.className = 'validation-message';
+        return false;
+    }
+    
+    if (phoneRegex.test(cleanPhone)) {
+        validationDiv.textContent = '✓ Numéro valide';
+        validationDiv.className = 'validation-message success';
+        return true;
+    } else {
+        validationDiv.textContent = '✗ Format de téléphone invalide (ex: 06 12 34 56 78)';
+        validationDiv.className = 'validation-message error';
+        return false;
+    }
+}
+
+// Validation du nom/prénom
+function validateName(name, validationId) {
+    const validationDiv = document.getElementById(validationId);
+    
+    if (!validationDiv) return false;
+    
+    if (!name) {
+        validationDiv.textContent = '';
+        validationDiv.className = 'validation-message';
+        return false;
+    }
+    
+    if (name.length >= 2) {
+        validationDiv.textContent = '✓ Valide';
+        validationDiv.className = 'validation-message success';
+        return true;
+    } else {
+        validationDiv.textContent = '✗ Minimum 2 caractères';
+        validationDiv.className = 'validation-message error';
+        return false;
+    }
+}
+
+// Effacer tous les messages de validation
+function clearValidationMessages() {
+    const validationMessages = document.querySelectorAll('.validation-message');
+    validationMessages.forEach(msg => {
+        msg.textContent = '';
+        msg.className = 'validation-message';
+    });
+}
+
+// Soumission du formulaire de candidature
+async function submitCandidateForm(event) {
+    event.preventDefault();
+    
+    console.log('Soumission du formulaire de candidature');
+    
+    const submitBtn = document.getElementById('submit-btn');
+    const btnText = submitBtn ? submitBtn.querySelector('.btn-text') : null;
+    const btnLoading = submitBtn ? submitBtn.querySelector('.btn-loading') : null;
+    
+    // Récupérer les données du formulaire
+    const formData = {
+        centre: document.getElementById('center-name').value,
+        prenom: document.getElementById('candidate-firstname').value.trim(),
+        nom: document.getElementById('candidate-lastname').value.trim(),
+        email: document.getElementById('candidate-email').value.trim(),
+        telephone: document.getElementById('candidate-phone').value.trim(),
+        centre_id: currentCenterId,
+        date_soumission: new Date().toISOString()
+    };
+    
+    console.log('Données du formulaire:', formData);
+    
+    // Validation finale
+    const isEmailValid = validateEmail(formData.email);
+    const isPhoneValid = validatePhone(formData.telephone);
+    const isFirstnameValid = validateName(formData.prenom, 'firstname-validation');
+    const isLastnameValid = validateName(formData.nom, 'lastname-validation');
+    
+    if (!isEmailValid || !isPhoneValid || !isFirstnameValid || !isLastnameValid) {
+        alert('Veuillez corriger les erreurs dans le formulaire avant de soumettre.');
+        return;
+    }
+    
+    // Désactiver le bouton et afficher le loading
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        if (btnText) btnText.style.display = 'none';
+        if (btnLoading) btnLoading.style.display = 'inline-block';
+    }
+    
+    try {
+        console.log('Envoi de la candidature vers:', CANDIDATE_WEBHOOK_URL);
+        
+        const response = await fetch(CANDIDATE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('Réponse du webhook:', result);
+        
+        // Afficher le message de succès
+        const candidateForm = document.getElementById('candidate-form');
+        const successMessage = document.getElementById('success-message');
+        
+        if (candidateForm) candidateForm.style.display = 'none';
+        if (successMessage) successMessage.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi de la candidature:', error);
+        alert('Erreur lors de l\'envoi de votre candidature. Veuillez réessayer.');
+    } finally {
+        // Réactiver le bouton
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            if (btnText) btnText.style.display = 'inline-block';
+            if (btnLoading) btnLoading.style.display = 'none';
+        }
+    }
+}
+
+// Initialisation des écouteurs d'événements pour la candidature
+function setupCandidateEventListeners() {
+    console.log('Configuration des écouteurs de candidature');
+    
+    const candidateForm = document.getElementById('candidate-form');
+    const candidateModal = document.getElementById('candidate-modal');
+    
+    if (!candidateForm || !candidateModal) {
+        console.log('Éléments de candidature non trouvés');
+        return;
+    }
+    
+    // Soumission du formulaire
+    candidateForm.addEventListener('submit', submitCandidateForm);
+    
+    // Fermeture de la modal en cliquant à l'extérieur
+    candidateModal.addEventListener('click', function(event) {
+        if (event.target === this) {
+            closeCandidateModal();
+        }
+    });
+    
+    // Fermeture avec la touche Échap
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && candidateModal.style.display === 'block') {
+            closeCandidateModal();
+        }
+    });
+    
+    // Configuration de la validation
+    setupFormValidation();
+}
+
+// S'assurer que la modal est cachée au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('candidate-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Ajouter l'initialisation des écouteurs de candidature après le chargement
+    setTimeout(() => {
+        setupCandidateEventListeners();
+    }, 1000);
 });
