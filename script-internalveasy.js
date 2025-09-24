@@ -581,7 +581,7 @@ async function renderCards() {
                 <div class="card-info-item">
                     <i class="fas fa-user-plus"></i>
                     <button class="candidate-btn" onclick="openCandidateModal('${center.name}', '${center.id}')">
-                        Candidater
+                        Postuler
                     </button>
                 </div>
             </div>
@@ -1005,3 +1005,4 @@ window.addEventListener('error', function(e) {
 window.addEventListener('unhandledrejection', function(e) {
     console.error('Promesse rejetée:', e.reason);
 });
+
